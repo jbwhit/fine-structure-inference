@@ -1,4 +1,4 @@
-sheets = ['B346', 'B390', 'B437', 'R564', 'R760', 'R860',]
+sheets = ['B346', 'B390', 'B437', 'R564', 'R580', 'R760', 'R860',]
 # https://docs.google.com/spreadsheets/d/1lGW4GVVKO6mTxkGR4v5sc9P9-ITFwAf2vf6yn-sdQGE/edit?usp=sharing
 ccd = pd.read_excel("/Users/jonathan/junk/uves-vlt-ccd.xlsx", sheetname=sheets)
 ccd.keys()
