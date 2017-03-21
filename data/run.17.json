@@ -1,0 +1,37 @@
+{
+    "0": {
+        "offset": -74.88,
+        "quad": 0.0,
+        "slope": 0.0,
+        "waves_end": 3260.0,
+        "waves_start": 0.0
+    },
+    "1": {
+        "offset": -456.3,
+        "quad": 0.0,
+        "slope": 0.117,
+        "waves_end": 4510.0,
+        "waves_start": 3260.0
+    },
+    "2": {
+        "offset": 3553.9919999999997,
+        "quad": 0.0,
+        "slope": -0.7722,
+        "waves_end": 4760.0,
+        "waves_start": 4510.0
+    },
+    "3": {
+        "offset": -678.6,
+        "quad": 0.0,
+        "slope": 0.117,
+        "waves_end": 6840.0,
+        "waves_start": 4760.0
+    },
+    "4": {
+        "offset": 121.68000000000006,
+        "quad": 0.0,
+        "slope": 0.0,
+        "waves_end": 10000.0,
+        "waves_start": 6840.0
+    }
+}
