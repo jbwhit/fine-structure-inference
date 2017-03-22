@@ -718,6 +718,7 @@ def plot_example_systematic(region_dictionary):
                  linestyle=linestyle)
 
     ax.set_xlim(2900, 7500)
+    ax.set_ylim(-250, 250)
     ax.set_xlabel("Hairlength")
     ax.set_ylabel("Systematic Error of Salary")
     fig.tight_layout()
@@ -771,3 +772,45 @@ def plot_shift(specie=['Al', 'Mg'],
     ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     fig.tight_layout()
     # plot_shift(specie=['Al', 'Mg', 'Fe', 'Ni'], )
+
+def plot_distortion(distortions, xlims=(3000, 10000)):
+    fig, ax = plt.subplots(figsize=(12, 8))
+    wave = np.arange(xlims[0], xlims[1], 2)
+    vshift = np.ones_like(wave)
+    temp3 = pd.DataFrame(columns=['wavelength', 'vshift'], 
+                 data=np.array([wave, vshift]).T)
+    temp3['vshift'] = temp3.apply(lambda x:offset(x, distortions), axis=1)
+    temp3.plot(x='wavelength', y='vshift', ax=ax)
+
+
+# Misc
+
+def list_of_distortion(chip='B390', slope=0.0, offset=0.0, chip_info=vlt_ccds):
+    
+    wav_min = chip_info.loc[chip].wav_min
+    midpoint = chip_info.loc[chip].midpoint
+    wav_max = chip_info.loc[chip].wav_max
+    intercept = -slope * (midpoint + offset)
+    return list([chip, wav_min, midpoint, wav_max, slope, intercept])
+
+
+def create_distortion_from_ccd(chips=['B390', 'R580'],
+                      slopes=[0.0, 20.5],
+                      offsets=[0.0, 15.5],
+                      columns=['chip', 'wav_min', 'midpoint', 'wav_max', 'slope', 'intercept'],
+                      chip_info=vlt_ccds,):
+    chips=['B390', 'R580', ]
+    temp_list = []
+    for (chip, slope, offset) in zip(chips, slopes, offsets):
+        temp_list.append(list_of_distortion(chip=chip, slope=slope, offset=offset))
+    return pd.DataFrame(columns=columns, data=temp_list)
+
+
+def plot_distortion(distortions, xlims=(3000, 10000)):
+    fig, ax = plt.subplots(figsize=(12, 8))
+    wave = np.arange(xlims[0], xlims[1], 2)
+    vshift = np.ones_like(wave)
+    temp3 = pd.DataFrame(columns=['wavelength', 'vshift'], 
+                 data=np.array([wave, vshift]).T)
+    temp3['vshift'] = temp3.apply(lambda x:offset(x, distortions), axis=1)
+    temp3.plot(x='wavelength', y='vshift', ax=ax)
