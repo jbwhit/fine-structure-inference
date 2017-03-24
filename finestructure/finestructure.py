@@ -176,8 +176,6 @@ def create_blank_transitions_dataset(source=all_systems):
             qvals_list.append(qval)
         vshifts = np.array(vshifts)
         errors = generate_sigmas(vshifts)
-#         vshifts += errors * np.random.randn(len(vshifts))
-#         vshifts = vshifts - vshifts[0]
         for single in range(len(vshifts)):
             abs_count += 1
             df.loc[abs_count] = [int(index), #system
@@ -228,6 +226,118 @@ def fit_hypothesis(system, dataframe1, hypothesis):
     results = sm.WLS(plotdf1.vshift, X, weights=1.0/plotdf1.sigma).fit()
     chisq = np.sum((plotdf1.vshift - results.fittedvalues)**2.0 / (plotdf1.sigma) ** 2.0)
     return chisq, results
+
+def chisq(system=vlt,
+          fit_alpha_col='dipole_delta_alpha',
+          alpha_col='delta_alpha',
+          error_col='error_delta_alpha',):
+    return np.sum((system[alpha_col] - system[fit_alpha_col]) ** 2.0 / (system[error_col] ** 2.0))
+
+def velocity_shift(wavelength, distortion):
+    for segment in distortion:
+        if (wavelength > distortion[segment]['waves_start']) and (wavelength <= distortion[segment]['waves_end']):
+            slope = distortion[segment]['slope']
+            offset = distortion[segment]['offset']
+    return -(wavelength * slope + offset)
+
+def offset(row, distortions):
+    add_vshift = []
+    for index, distortion in distortions.iterrows():
+        if (row.wavelength > distortion.wav_min) & (row.wavelength < distortion.wav_max):
+            add_vshift.append(row.wavelength * distortion.slope + distortion.intercept)
+    if len(add_vshift) == 0:
+        add_vshift.append(0.0)
+    return np.average(add_vshift)
+
+def best_fit_results(fit_dictionary):
+    bestchi, key = sorted([(fit_dictionary[key]['chisq'], key) for key in fit_dictionary 
+                           if 'chisq' in  fit_dictionary[key]])[0]
+    return bestchi, key
+
+def create_fit_dict(knot_positions = np.array([3024.5, 4518.8, 4999.4, 6742.75, 10605.7]),
+                   ):
+    fit_dictionary = {}
+    y = np.zeros_like(knot_positions)
+    fit_dictionary[tuple(y)] = {}
+    interp = interp1d(knot_positions, y)
+    fit_dictionary[tuple(y)]['interpolate'] = interp
+    return fit_dictionary
+
+def fit_alpha(dataframe, reference_systems):
+    """Takes a dataframe of transitions and returns a systems dataframe w/ best fit sim_fit_alpha."""
+    new_df = reference_systems.copy()
+    new_df['sim_fit_alpha'] = -1.0
+    indices = []
+    slopes = []
+    for index, dfg in dataframe.groupby('system'):
+        design_matrix = sm.add_constant(dfg.x)
+        results = sm.WLS(dfg.vshift, design_matrix, weights=1.0/dfg.sigma).fit()
+        chisq = np.sum((dfg.vshift - results.fittedvalues)**2.0 / (dfg.sigma) ** 2.0)
+        const, slope = results.params
+        indices.append(index)
+        slopes.append(slope)
+    new_df['sim_fit_alpha'].iloc[indices] = slopes
+    return new_df.iloc[indices]
+
+
+def update_fit_dict(y=(0, 150, -150, 25, 75),
+                    fit_dictionary=fit_dict,
+                    clobber=False,
+                    knot_positions=np.array([3024.5, 4518.8, 4999.4, 6742.75, 10605.7]),
+                   ):
+    if tuple(y) not in fit_dictionary:
+        fit_dictionary[tuple(y)] = {}
+        interp = interp1d(knot_positions, y)
+        fit_dictionary[tuple(y)]['interpolate'] = interp
+    else:
+        print("Already in fit_dictionary.")
+    pass
+
+def fit_distortion_model(guess,
+                       fit_dictionary,
+                       knot_positions,
+                       blank_transitions, #
+                       reference_systems, #
+                       verbose, #bool
+                      ):
+    """Let knot-point float..."""
+    key = tuple([0] + list(guess))
+    if key not in fit_dictionary:
+        update_fit_dict(y=key, fit_dictionary=fit_dictionary, knot_positions=knot_positions)
+
+    pretty_string = ', '.join(['{:.2f}'.format(x) for x in key])
+    if 'chisq' not in fit_dictionary[key]:
+        blank_copy = blank_transitions.copy()
+        blank_copy['vshift'] = fit_dictionary[key]['interpolate'](blank_copy.wavelength)
+        blank_copy_systems = fit_alpha(blank_copy, reference_systems)
+        chisquare = chisq(blank_copy_systems,
+                          fit_alpha_col='sim_fit_alpha')
+        fit_dictionary[key]['chisq'] = chisquare
+        if verbose:
+            print('{:4.5f}'.format(chisquare), pd.Timestamp('now').strftime("%Y-%m-%d %H:%M:%S"), pretty_string)
+    else:
+        chisquare = fit_dictionary[key]['chisq']
+        if verbose:
+            print('{:4.5f}'.format(chisquare), "    Already fit    ", pretty_string)
+    return chisquare
+
+def fit_distortion(knot_positions,
+                   blank_transitions, # 
+                   reference_systems, # all_systems
+                   verbose, #bool
+                  ):
+    fit_dictionary = create_fit_dict(knot_positions=knot_positions)
+    if verbose:
+        print("Chisq     Date and Time Run   Values")
+    results = fmin_l_bfgs_b(func=fit_distortion_model,
+                        x0=list(np.zeros_like(knot_positions))[1:],
+                        args=(fit_dictionary, knot_positions, blank_transitions, reference_systems, verbose),
+                        epsilon=2.0,
+                        approx_grad=True,
+                       )
+    bestchi, key = best_fit_results(fit_dictionary)
+    return bestchi, key, fit_dictionary
+
 
 def generate_dataset(gen_dipole_alpha=True,
                      wavelength_distortion=False,
